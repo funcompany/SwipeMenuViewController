@@ -31,6 +31,14 @@ final class TabItemView: UIView {
         super.layoutSubviews()
     }
 
+    public func titleWidth() -> CGFloat {
+        let width = NSAttributedString(string: titleLabel.text ?? "",
+                                       attributes: [.font: titleLabel.font])
+            .boundingRect(with: CGSize(width: CGFloat.greatestFiniteMagnitude, height: 50),
+                          options: .usesLineFragmentOrigin, context: nil).width
+        return width
+    }
+
     private func setupLabel() {
         titleLabel = UILabel(frame: bounds)
         titleLabel.textAlignment = .center

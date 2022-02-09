@@ -234,13 +234,13 @@ open class TabView: UIScrollView {
 
                     NSLayoutConstraint.activate([
                         tabItemView.widthAnchor.constraint(equalToConstant: adjustCellSize.width)
-                        ])
+                    ])
                 } else {
                     containerView.addArrangedSubview(tabItemView)
 
                     NSLayoutConstraint.activate([
                         tabItemView.widthAnchor.constraint(equalToConstant: options.itemView.width)
-                        ])
+                    ])
                 }
             case .segmented:
                 let adjustCellSize: CGSize
@@ -259,7 +259,7 @@ open class TabView: UIScrollView {
             NSLayoutConstraint.activate([
                 tabItemView.topAnchor.constraint(equalTo: containerView.topAnchor),
                 tabItemView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
-                ])
+            ])
 
             xPosition += tabItemView.frame.size.width
         }
@@ -273,7 +273,7 @@ open class TabView: UIScrollView {
 
         containerView.frame.size.width = containerWidth
         containerView.translatesAutoresizingMaskIntoConstraints = false
-        
+
         let heightConstraint: NSLayoutConstraint
         switch options.addition {
         case .underline:
@@ -292,7 +292,7 @@ open class TabView: UIScrollView {
                     leftMarginConstraint,
                     containerView.widthAnchor.constraint(equalToConstant: containerWidth),
                     heightConstraint
-                    ])
+                ])
                 contentSize.width = containerWidth + options.margin * 2 + safeAreaInsets.left - safeAreaInsets.right
             } else {
                 leftMarginConstraint = containerView.leadingAnchor.constraint(equalTo: self.leadingAnchor, constant: options.margin)
@@ -301,7 +301,7 @@ open class TabView: UIScrollView {
                     leftMarginConstraint,
                     containerView.widthAnchor.constraint(equalToConstant: containerWidth),
                     heightConstraint
-                    ])
+                ])
                 contentSize.width = containerWidth + options.margin * 2
             }
         case .segmented:
@@ -313,7 +313,7 @@ open class TabView: UIScrollView {
                     leftMarginConstraint,
                     widthConstraint,
                     heightConstraint
-                    ])
+                ])
             } else {
                 leftMarginConstraint = containerView.leadingAnchor.constraint(equalTo: self.leadingAnchor, constant: options.margin)
                 widthConstraint = containerView.widthAnchor.constraint(equalTo: self.widthAnchor, constant: options.margin * -2)
@@ -322,7 +322,7 @@ open class TabView: UIScrollView {
                     leftMarginConstraint,
                     widthConstraint,
                     heightConstraint
-                    ])
+                ])
             }
 
             contentSize = .zero
@@ -362,14 +362,14 @@ extension TabView {
             additionView.layer.position.y = itemView.layer.position.y
             additionView.layer.cornerRadius = options.additionView.circle.cornerRadius ?? additionView.frame.height / 2
             additionView.backgroundColor = options.additionView.backgroundColor
-            
+
             if #available(iOS 11.0, *) {
                 if let m = options.additionView.circle.maskedCorners {
                     additionView.layer.maskedCorners = m
                 }
             } else {
                 var cornerMask = UIRectCorner()
-                
+
                 if let maskedCorners = options.additionView.circle.maskedCorners
                 {
                     if(maskedCorners.contains(.layerMinXMinYCorner)){
@@ -390,7 +390,7 @@ extension TabView {
                     additionView.layer.mask = mask
                 }
             }
-            
+
             containerView.addSubview(additionView)
             containerView.sendSubviewToBack(additionView)
         case .none:
@@ -403,20 +403,19 @@ extension TabView {
     private func updateAdditionViewPosition(index: Int) {
         guard let target = currentItem else { return }
 
-        additionView.frame.origin.x = target.frame.origin.x + options.additionView.padding.left
-
         if options.needsAdjustItemViewWidth {
             let cellWidth = itemViews[index].frame.width
-            additionView.frame.size.width = cellWidth - options.additionView.padding.horizontal
+            additionView.frame.size.width = min(cellWidth - options.additionView.padding.horizontal, target.titleWidth())
         }
+        additionView.frame.origin.x = target.frame.origin.x + (target.frame.width - additionView.frame.size.width) / 2
 
         focus(on: target)
     }
 
     fileprivate func resetAdditionViewPosition(index: Int) {
         guard options.style == .segmented,
-            let dataSource = dataSource,
-            dataSource.numberOfItems(in: self) > 0 else { return }
+              let dataSource = dataSource,
+              dataSource.numberOfItems(in: self) > 0 else { return }
         let adjustCellWidth: CGFloat
         if #available(iOS 11.0, *), options.isSafeAreaEnabled && safeAreaInsets != .zero {
             adjustCellWidth = (frame.width - options.margin * 2 - safeAreaInsets.left - safeAreaInsets.right) / CGFloat(dataSource.numberOfItems(in: self)) - options.additionView.padding.horizontal
@@ -424,8 +423,9 @@ extension TabView {
             adjustCellWidth = (frame.width - options.margin * 2) / CGFloat(dataSource.numberOfItems(in: self)) - options.additionView.padding.horizontal
         }
 
-        additionView.frame.origin.x = adjustCellWidth * CGFloat(index) + options.additionView.padding.left
-        additionView.frame.size.width = adjustCellWidth
+        let originalX = adjustCellWidth * CGFloat(index) + options.additionView.padding.left
+        additionView.frame.origin.x = max(originalX, originalX + (adjustCellWidth - itemViews[index].titleWidth()) / 2)
+        additionView.frame.size.width = min(adjustCellWidth, itemViews[index].titleWidth())
     }
 
     fileprivate func animateAdditionView(index: Int, animated: Bool, completion: ((Bool) -> Swift.Void)? = nil) {
@@ -450,15 +450,19 @@ extension TabView {
         if options.additionView.isAnimationOnSwipeEnable {
             switch direction {
             case .forward:
-                additionView.frame.origin.x = currentItem.frame.origin.x + (nextItem.frame.origin.x - currentItem.frame.origin.x) * ratio + options.additionView.padding.left
-                additionView.frame.size.width = currentItem.frame.size.width + (nextItem.frame.size.width - currentItem.frame.size.width) * ratio - options.additionView.padding.horizontal
+                additionView.frame.origin.x = currentItem.frame.origin.x + (currentItem.frame.width - currentItem.titleWidth()) / 2 + (nextItem.frame.origin.x - currentItem.frame.origin.x) * ratio + options.additionView.padding.left
+                let width1 = currentItem.frame.size.width + (nextItem.frame.size.width - currentItem.frame.size.width) * ratio - options.additionView.padding.horizontal
+                let width2 = currentItem.titleWidth() + (nextItem.frame.size.width - currentItem.frame.size.width) * ratio - options.additionView.padding.horizontal
+                additionView.frame.size.width = min(width1, width2)
                 if options.needsConvertTextColorRatio {
                     nextItem.titleLabel.textColor = options.itemView.textColor.convert(to: options.itemView.selectedTextColor, multiplier: ratio)
                     currentItem.titleLabel.textColor = options.itemView.selectedTextColor.convert(to: options.itemView.textColor, multiplier: ratio)
                 }
             case .reverse:
-                additionView.frame.origin.x = previousItem.frame.origin.x + (currentItem.frame.origin.x - previousItem.frame.origin.x) * ratio + options.additionView.padding.left
-                additionView.frame.size.width = previousItem.frame.size.width + (currentItem.frame.size.width - previousItem.frame.size.width) * ratio - options.additionView.padding.horizontal
+                additionView.frame.origin.x = previousItem.frame.origin.x + (previousItem.frame.width - previousItem.titleWidth()) / 2 + (currentItem.frame.origin.x - previousItem.frame.origin.x) * ratio + options.additionView.padding.left
+                let width1 = previousItem.frame.size.width + (currentItem.frame.size.width - previousItem.frame.size.width) * ratio - options.additionView.padding.horizontal
+                let width2 = previousItem.titleWidth() + (currentItem.frame.size.width - previousItem.frame.size.width) * ratio - options.additionView.padding.horizontal
+                additionView.frame.size.width = min(width1, width2)
                 if options.needsConvertTextColorRatio {
                     previousItem.titleLabel.textColor = options.itemView.selectedTextColor.convert(to: options.itemView.textColor, multiplier: ratio)
                     currentItem.titleLabel.textColor = options.itemView.textColor.convert(to: options.itemView.selectedTextColor, multiplier: ratio)
@@ -501,8 +505,8 @@ extension TabView {
         guard let currentItem = currentItem else { return }
 
         if options.addition == .underline {
-            additionView.frame.origin.x = currentItem.frame.origin.x + options.additionView.padding.left
-            additionView.frame.size.width = currentItem.frame.size.width - options.additionView.padding.horizontal
+            additionView.frame.size.width = min(currentItem.frame.size.width - options.additionView.padding.horizontal, currentItem.titleWidth())
+            additionView.frame.origin.x = currentItem.frame.origin.x + (currentItem.frame.width - additionView.frame.size.width) / 2
         }
 
         focus(on: currentItem, animated: false)
@@ -528,8 +532,8 @@ extension TabView {
 
     @objc func tapItemView(_ recognizer: UITapGestureRecognizer) {
         guard let itemView = recognizer.view as? TabItemView,
-            let index: Int = itemViews.firstIndex(of: itemView),
-            currentIndex != index else { return }
+              let index: Int = itemViews.firstIndex(of: itemView),
+              currentIndex != index else { return }
         tabViewDelegate?.tabView(self, willSelectTabAt: index)
         moveTabItem(index: index, animated: true)
         update(index)
